@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: train-schedule-service-canary
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+spec:
+  ports:
+    - port: 8091
+      targetPort: 8080
+      protocol: TCP
+  type: LoadBalancer
+  selector:
+    app: train-schedule
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: train-schedule-deployment-canary
+  labels:
+    app: train-schedule
+spec:
+  replicas: $CANARY_REPLICAS
+  selector:
+    matchLabels:
+      app: train-schedule
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: train-schedule
+        track: canary
+    spec:
+      containers:
+      - name: train-schedule
+        image: $DOCKER_IMAGE_NAME:$BUILD_NUMBER
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 1
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 200m
